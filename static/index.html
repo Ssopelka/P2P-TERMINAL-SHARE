@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>P2P_SHARE</title>
+
+    <link rel="icon" type="image/x-icon" href="/static/icons/favicon.ico">
+    <link rel="stylesheet" href="/static/css/fonts.css?v=1">
+    <link rel="stylesheet" href="/static/css/upload.css?v=5">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+
+<body class="crt-effect">
+
+    <svg style="position: absolute; width: 0; height: 0; overflow: hidden;" aria-hidden="true">
+        <defs>
+            <filter id="goo" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="22" result="blur" />
+                <feColorMatrix in="blur" mode="matrix" values="
+                    1 0 0 0 0
+                    0 1 0 0 0
+                    0 0 1 0 0
+                    0 0 0 28 -11" result="goo" />
+                <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+            </filter>
+        </defs>
+    </svg>
+
+    <div class="crt-overlay"></div>
+    <div class="crt-scanline"></div>
+
+    <div class="bg-toggle">
+        <button id="bgToggleBtn" onclick="toggleBackground()">
+            [ РЕЖИМ: LAVA LAMP ]
+        </button>
+    </div>
+
+    <div id="lavaContainer" class="lava-container">
+        <div id="blobsWrapper" class="blobs-wrapper"></div>
+    </div>
+
+    <canvas id="matrixCanvas" class="matrix-rain" style="display: none;"></canvas>
+
+    <h2 data-text="> TERMINAL_UPLINK // E2E_ENCRYPTION">> TERMINAL_UPLINK // E2E_ENCRYPTION</h2>
+
+    <div class="box">
+        <div class="mode-toggle">
+            <label>
+                <input type="radio" name="transferMode" value="relay" checked onchange="onTransferModeChange()">
+                ЧЕРЕЗ СЕРВЕР (РЕЛЕ)
+            </label>
+            <label>
+                <input type="radio" name="transferMode" value="p2p" onchange="onTransferModeChange()">
+                НАПРЯМУЮ (P2P WEBRTC)
+            </label>
+        </div>
+        <div id="p2pHint" class="p2p-hint sys-msg" style="display:none;">
+            [ ОБА УЧАСТНИКА ДОЛЖНЫ БЫТЬ ОНЛАЙН ОДНОВРЕМЕННО. СЕРВЕР ФАЙЛЫ НЕ ХРАНИТ. ]
+        </div>
+
+        <div id="dropZone" class="drop-zone">
+            <span>[ ПЕРЕТАЩИТЕ ФАЙЛЫ СЮДА ИЛИ НАЖМИТЕ ДЛЯ ВЫБОРА ]</span>
+        </div>
+
+        <div class="controls">
+            <label class="btn-action">
+                + ВЫБРАТЬ ФАЙЛЫ
+                <input type="file" id="fileInput" class="hidden-input" multiple onchange="handleFileSelect(event)">
+            </label>
+            <label class="btn-action">
+                + ПАПКА В ZIP
+                <input type="file" id="folderInput" class="hidden-input" webkitdirectory directory
+                    onchange="handleFolderSelect(event)">
+            </label>
+        </div>
+
+        <div class="comment-section">
+            <label>> КОММЕНТАРИЙ К ЗАГРУЗКЕ:</label>
+            <textarea id="uploadComment" class="comment-input"
+                placeholder="Введите описание файлов (необязательно)..."></textarea>
+        </div>
+
+        <!-- Контейнер превью (скрыт по умолчанию через CSS) -->
+        <div id="previewContainer" class="preview-container"></div>
+
+        <div id="fileList" class="file-list">
+            <span class="sys-msg">ОЖИДАНИЕ ВВОДА ДАННЫХ...</span>
+        </div>
+
+        <!-- Настройки сессии (актуальны только для режима "реле") -->
+        <div id="relaySettings">
+            <div class="slider-container">
+                <label>> ЛИМИТ СКАЧИВАНИЙ: <span id="limitDisplay">1</span></label>
+                <input type="range" id="limitSlider" min="0" max="20" value="1">
+                <span class="sys-msg">0 = БЕЗЛИМИТ</span>
+            </div>
+
+            <div class="slider-container">
+                <label>> ВРЕМЯ АВТООЧИСТКИ: <span id="ttlDisplay">24 ЧАСА</span></label>
+                <input type="range" id="ttlSlider" min="1" max="720" value="24" step="1">
+                <span class="sys-msg">ОТ 1 ЧАСА ДО 30 ДНЕЙ (720 ЧАСОВ)</span>
+            </div>
+        </div>
+
+        <button id="mainUploadBtn" style="width: 100%; font-size: 16px; padding: 15px;" onclick="handleMainButton()">>>
+            ИНИЦИАЛИЗИРОВАТЬ ЗАГРУЗКУ << </button>
+    </div>
+
+    <div id="p2pStatus" class="result" style="display:none;"></div>
+    <div id="result" class="result"></div>
+
+    <div id="customModal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-title" id="modalTitle">> СИСТЕМНОЕ УВЕДОМЛЕНИЕ</div>
+            <div class="modal-text" id="modalText">Сообщение...</div>
+            <button class="btn-action" style="width: 100%;" onclick="closeModal()">[ ПОДТВЕРДИТЬ ]</button>
+        </div>
+    </div>
+
+    <div id="confirmModal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-title">> ПОДТВЕРЖДЕНИЕ СБРОСА</div>
+            <div class="modal-text" id="confirmText">Сообщение...</div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn-action" style="flex:1;" onclick="resolveConfirm(true)">[ ПОДТВЕРДИТЬ ]</button>
+                <button class="btn-action" style="flex:1; border-color:#f00; color:#f00;" onclick="resolveConfirm(false)">[ ОТМЕНА ]</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/lava-lamp.js?v=5"></script>
+    <script src="/static/js/matrix-rain.js?v=5"></script>
+    <script src="/static/js/upload.js?v=5"></script>
+    <script src="/static/js/webrtc-common.js?v=2"></script>
+    <script src="/static/js/webrtc-sender.js?v=2"></script>
+
+    <script>
+        // --- Переключение режима: РЕЛЕ (через сервер) / P2P (WebRTC напрямую) ---
+        let transferMode = 'relay';
+        let p2pSender = null;
+        let p2pStarted = false; // true, как только P2P-канал создан — блокирует изменение файлов
+
+        // --- Кастомное окно подтверждения (Да/Нет) в стиле терминала ---
+        let _confirmResolver = null;
+        function showConfirm(msg) {
+            document.getElementById('confirmText').innerText = msg;
+            document.getElementById('confirmModal').style.display = 'flex';
+            return new Promise((resolve) => { _confirmResolver = resolve; });
+        }
+        function resolveConfirm(val) {
+            document.getElementById('confirmModal').style.display = 'none';
+            if (_confirmResolver) { _confirmResolver(val); _confirmResolver = null; }
+        }
+
+        function setFileControlsEnabled(enabled) {
+            document.getElementById('fileInput').disabled = !enabled;
+            document.getElementById('folderInput').disabled = !enabled;
+            const zone = document.getElementById('dropZone');
+            zone.style.pointerEvents = enabled ? 'auto' : 'none';
+            zone.style.opacity = enabled ? '1' : '0.5';
+            document.querySelectorAll('#fileList .file-actions button').forEach(b => b.disabled = !enabled);
+        }
+
+        // Полный сброс состояния (очередь файлов, активный P2P-канал, показанные ссылки/QR)
+        function resetTransferState() {
+            if (p2pSender) { p2pSender.close(); p2pSender = null; }
+            p2pStarted = false;
+            shareId = null;
+            shareKey = null;
+
+            fileQueue.length = 0;
+            document.getElementById('fileList').innerHTML = '<span class="sys-msg">ОЖИДАНИЕ ВВОДА ДАННЫХ...</span>';
+            document.getElementById('previewContainer').innerHTML = '';
+            updatePreviewContainerVisibility();
+
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'none';
+            resultDiv.innerHTML = '';
+            const p2pStatusDiv = document.getElementById('p2pStatus');
+            p2pStatusDiv.style.display = 'none';
+            p2pStatusDiv.innerHTML = '';
+
+            setFileControlsEnabled(true);
+
+            const btn = document.getElementById('mainUploadBtn');
+            btn.disabled = false;
+        }
+
+        async function onTransferModeChange() {
+            const newMode = document.querySelector('input[name="transferMode"]:checked').value;
+            const hasState = fileQueue.length > 0 || p2pSender !== null;
+
+            if (hasState && newMode !== transferMode) {
+                const ok = await showConfirm(
+                    'ПРИ СМЕНЕ РЕЖИМА ПЕРЕДАЧИ СПИСОК ФАЙЛОВ И СОЗДАННЫЕ ССЫЛКИ БУДУТ СБРОШЕНЫ ДЛЯ ОТПРАВКИ В НОВОМ РЕЖИМЕ. ПРОДОЛЖИТЬ?'
+                );
+                if (!ok) {
+                    // Возвращаем радиокнопку на предыдущий режим
+                    document.querySelector(`input[name="transferMode"][value="${transferMode}"]`).checked = true;
+                    return;
+                }
+                resetTransferState();
+            }
+
+            transferMode = newMode;
+            const isP2P = transferMode === 'p2p';
+            document.getElementById('p2pHint').style.display = isP2P ? 'block' : 'none';
+            document.getElementById('relaySettings').style.display = isP2P ? 'none' : 'block';
+            document.getElementById('mainUploadBtn').innerText = isP2P
+                ? '>> СОЗДАТЬ P2P-КАНАЛ <<'
+                : '>> ИНИЦИАЛИЗИРОВАТЬ ЗАГРУЗКУ <<';
+        }
+
+        function handleMainButton() {
+            if (transferMode === 'p2p') startP2PShare();
+            else executeUpload();
+        }
+
+        async function startP2PShare() {
+            // Защита от повторного запуска: ссылка/канал не должны пересоздаваться повторно
+            if (p2pStarted) return;
+            if (!fileQueue.length) return showAlert('НЕТ ФАЙЛОВ В ОЧЕРЕДИ ДЛЯ ОТПРАВКИ', 'ОШИБКА ВВОДА');
+
+            const btn = document.getElementById('mainUploadBtn');
+            btn.disabled = true;
+            btn.innerText = '[ СОЗДАНИЕ КАНАЛА... ]';
+
+            try {
+                const res = await fetch('/api/p2p/create', { method: 'POST' });
+                if (!res.ok) throw new Error('Отказ сервера при создании комнаты');
+                const { room_id } = await res.json();
+
+                const fullUrl = window.location.origin + '/p2p/' + room_id;
+                const qrRes = await fetch(`/api/qr?text=${encodeURIComponent(fullUrl)}`);
+                const qrData = await qrRes.json();
+
+                // С этого момента файлы менять нельзя, а ссылка больше не пересоздаётся
+                p2pStarted = true;
+                setFileControlsEnabled(false);
+
+                const statusDiv = document.getElementById('p2pStatus');
+                statusDiv.style.display = 'block';
+                statusDiv.innerHTML = `
+                    > P2P-КАНАЛ СОЗДАН<br>> ССЫЛКА ДЛЯ ПОЛУЧАТЕЛЯ (ДЕРЖИТЕ ЭТУ ВКЛАДКУ ОТКРЫТОЙ):<br>
+                    <span class="share-url" id="p2pLinkBtn" onclick="copyToClipboard('${fullUrl}', 'p2pLinkBtn')">${fullUrl}</span>
+                    <span class="sys-msg">(НАЖМИТЕ НА ССЫЛКУ ДЛЯ КОПИРОВАНИЯ)</span>
+                    <div class="qr-container"><img src="${qrData.qr_code}" alt="QR Code"></div>
+                `;
+
+                p2pSender = new P2PSender(room_id, {
+                    onStateChange: (state) => {
+                        // Общий статус соединения не выводим на странице (только QR/ссылка) —
+                        // прогресс виден по каждому файлу отдельно в списке ниже.
+                        if (state === 'peer-left' || state === 'failed' || state === 'disconnected') {
+                            showAlert('ПОЛУЧАТЕЛЬ ОТКЛЮЧИЛСЯ ОТ КАНАЛА', 'P2P: СОЕДИНЕНИЕ РАЗОРВАНО');
+                        }
+                    },
+                    onWaitingAccept: (id) => {
+                        const st = document.getElementById(`status-${id}`);
+                        if (st) { st.innerText = 'ОЖИДАНИЕ ПРИЁМА...'; st.style.color = '#ff0'; }
+                    },
+                    onFileAccepted: (id) => {
+                        const st = document.getElementById(`status-${id}`);
+                        if (st) { st.innerText = 'ПЕРЕДАЧА P2P...'; st.style.color = '#0ff'; }
+                    },
+                    onFileRejected: (id) => {
+                        const st = document.getElementById(`status-${id}`);
+                        const bar = document.getElementById(`bar-${id}`);
+                        if (st) { st.innerText = 'ОТКЛОНЕНО ПОЛУЧАТЕЛЕМ'; st.style.color = '#f00'; }
+                        if (bar) bar.style.background = '#f00';
+                    },
+                    onWaitingReceiptConfirm: (id) => {
+                        const st = document.getElementById(`status-${id}`);
+                        if (st) { st.innerText = 'ЗАВЕРШЕНИЕ ЗАПИСИ...'; st.style.color = '#ff0'; }
+                    },
+                    onProgress: (id, sent, speed, total) => {
+                        const st = document.getElementById(`status-${id}`);
+                        const bar = document.getElementById(`bar-${id}`);
+                        const pct = document.getElementById(`pct-${id}`);
+                        const spd = document.getElementById(`spd-${id}`);
+                        const p = total ? ((sent / total) * 100).toFixed(1) : 0;
+                        if (st) { st.innerText = 'ПЕРЕДАЧА P2P...'; st.style.color = '#0ff'; }
+                        if (bar) bar.style.width = p + '%';
+                        if (pct) pct.innerText = p + '%';
+                        if (spd) spd.innerText = p2pFormatSpeed(speed);
+                    },
+                    onFileDone: (id) => {
+                        const st = document.getElementById(`status-${id}`);
+                        const bar = document.getElementById(`bar-${id}`);
+                        if (st) { st.innerText = 'ОТПРАВЛЕНО'; st.style.color = '#0f0'; }
+                        if (bar) bar.style.background = '#0f0';
+                    },
+                    onAllDone: () => {
+                        btn.innerText = '>> ВСЕ ФАЙЛЫ ПЕРЕДАНЫ <<';
+                    },
+                    onError: (msg) => showAlert(msg, 'ОШИБКА P2P'),
+                });
+
+                await p2pSender.connect();
+                p2pSender.addFiles(fileQueue.map(q => ({ id: q.id, file: q.file })));
+
+                btn.innerText = '[ КАНАЛ ОТКРЫТ, ЖДЁМ ПОЛУЧАТЕЛЯ ]';
+            } catch (e) {
+                showAlert('СИСТЕМНЫЙ СБОЙ: ' + e.message, 'ОШИБКА P2P');
+                btn.disabled = false;
+                btn.innerText = '>> СОЗДАТЬ P2P-КАНАЛ <<';
+                p2pStarted = false;
+                setFileControlsEnabled(true);
+            }
+        }
+
+        let currentBg = 'lava';
+        function toggleBackground() {
+            const lavaContainer = document.getElementById('lavaContainer');
+            const matrixCanvas = document.getElementById('matrixCanvas');
+            const btn = document.getElementById('bgToggleBtn');
+
+            if (currentBg === 'lava') {
+                currentBg = 'matrix';
+                lavaContainer.style.display = 'none';
+                matrixCanvas.style.display = 'block';
+                btn.innerText = '[ РЕЖИМ: MATRIX RAIN ]';
+                startMatrixRain();
+            } else {
+                currentBg = 'lava';
+                lavaContainer.style.display = 'block';
+                matrixCanvas.style.display = 'none';
+                btn.innerText = '[ РЕЖИМ: LAVA LAMP ]';
+                stopMatrixRain();
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>P2P_DOWNLOAD</title>
+
+    <link rel="icon" type="image/x-icon" href="/static/icons/favicon.ico">
+    <link rel="stylesheet" href="/static/css/fonts.css?v=1">
+    <link rel="stylesheet" href="/static/css/download.css?v=2">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+
+<body class="crt-effect">
+    <div class="crt-overlay"></div>
+    <div class="crt-scanline"></div>
+    <div class="glitch-overlay"></div>
+
+    <h2 data-text="> ЗАШИФРОВАННЫЙ ПАКЕТ ДАННЫХ">> ЗАШИФРОВАННЫЙ ПАКЕТ ДАННЫХ</h2>
+
+    <div id="commentSection" class="comment-section" style="display: none;">
+        <div class="comment-box">
+            <div class="comment-header">> КОММЕНТАРИЙ ОТПРАВИТЕЛЯ:</div>
+            <div id="commentText" class="comment-text"></div>
+        </div>
+    </div>
+
+    <div id="connectionStatus" class="connection-status">
+        <span class="status-indicator"></span>
+        <span id="statusText">[ ПОДКЛЮЧЕНИЕ К СЕРВЕРУ... ]</span>
+    </div>
+
+    <div id="downloadAllContainer" class="download-all-container" style="display: none;">
+        <button id="downloadAllBtn" class="btn-action btn-large" onclick="downloadAllAsZip()">
+            [ СКАЧАТЬ ВСЁ АРХИВОМ (ZIP) ]
+        </button>
+        <div id="zipProgress" class="zip-progress" style="display: none;">
+            <div class="progress-bar-wrapper">
+                <div id="zipBar" class="progress-bar"></div>
+            </div>
+            <span id="zipStatusText" class="sys-msg">[ ПОДГОТОВКА... ]</span>
+        </div>
+    </div>
+
+    <div id="fileList" class="file-list">
+        <div class="loading-message">
+            <span class="loading-dots">
+                <span></span><span></span><span></span>
+            </span>
+            <span class="loading-text">РАСШИФРОВКА МЕТАДАННЫХ...</span>
+        </div>
+    </div>
+
+    <div id="errorModal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-title" id="modalTitle">> СИСТЕМНАЯ ОШИБКА</div>
+            <div class="modal-text" id="modalText">Сообщение...</div>
+            <button class="btn-action" style="width: 100%;" onclick="closeModal()">[ ПОДТВЕРДИТЬ ]</button>
+        </div>
+    </div>
+
+    <script src="/static/js/download.js?v=2"></script>
+
+    <script>
+        function closeModal() {
+            document.getElementById('errorModal').style.display = 'none';
+        }
+    </script>
+</body>
+
+</html>

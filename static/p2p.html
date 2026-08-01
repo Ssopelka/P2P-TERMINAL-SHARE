@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>P2P_DIRECT</title>
+
+    <link rel="icon" type="image/x-icon" href="/static/icons/favicon.ico">
+    <link rel="stylesheet" href="/static/css/fonts.css?v=1">
+    <link rel="stylesheet" href="/static/css/download.css?v=2">
+</head>
+
+<body class="crt-effect">
+    <div class="crt-overlay"></div>
+    <div class="crt-scanline"></div>
+    <div class="glitch-overlay"></div>
+
+    <h2 data-text="> ПРЯМОЙ P2P-КАНАЛ (WEBRTC)">> ПРЯМОЙ P2P-КАНАЛ (WEBRTC)</h2>
+
+    <div id="connectionStatus" class="connection-status">
+        <span class="status-indicator"></span>
+        <span id="statusText">[ ПОДКЛЮЧЕНИЕ К СИГНАЛЬНОМУ СЕРВЕРУ... ]</span>
+    </div>
+
+    <div id="fileList" class="file-list">
+        <span class="sys-msg">ОЖИДАНИЕ ОТПРАВИТЕЛЯ...</span>
+    </div>
+
+    <div id="errorModal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-title" id="modalTitle">> СИСТЕМНАЯ ОШИБКА</div>
+            <div class="modal-text" id="modalText">Сообщение...</div>
+            <button class="btn-action" style="width: 100%;" onclick="closeModal()">[ ПОДТВЕРДИТЬ ]</button>
+        </div>
+    </div>
+
+    <script src="/static/js/webrtc-common.js?v=2"></script>
+    <script src="/static/js/webrtc-receiver.js?v=2"></script>
+
+    <script>
+        function closeModal() {
+            document.getElementById('errorModal').style.display = 'none';
+        }
+
+        function setStatus(text, indicatorClass) {
+            document.getElementById('statusText').innerText = text;
+            const ind = document.querySelector('.status-indicator');
+            if (ind) ind.className = 'status-indicator' + (indicatorClass ? ' ' + indicatorClass : '');
+        }
+
+        function showError(msg) {
+            document.getElementById('modalText').innerText = msg;
+            document.getElementById('errorModal').style.display = 'flex';
+        }
+
+        const roomId = location.pathname.split('/').pop();
+        const fileList = document.getElementById('fileList');
+        const rows = {}; // id -> {el, acceptBtn, statusEl, bar, pct, spd}
+        let receiver = null;
+
+        function renderOffer(meta) {
+            const sysMsg = fileList.querySelector('.sys-msg');
+            if (sysMsg) sysMsg.remove();
+
+            const div = document.createElement('div');
+            div.className = 'file-item';
+            div.innerHTML = `
+                <div class="file-header">
+                    <div class="file-info">
+                        <span class="file-name">> ${meta.name}</span>
+                        <div class="file-meta">
+                            <span class="file-size">[ РАЗМЕР: ${p2pFormatSize(meta.size)} ]</span>
+                        </div>
+                    </div>
+                    <div class="file-actions">
+                        <button id="accept-${meta.id}">[ ПРИНЯТЬ ]</button>
+                    </div>
+                </div>
+                <div id="prog-${meta.id}" class="download-progress" style="display:none;">
+                    <div class="progress-bar-wrapper">
+                        <div id="bar-${meta.id}" class="progress-bar"></div>
+                    </div>
+                    <div class="progress-stats">
+                        <span id="pct-${meta.id}">0%</span>
+                        <span id="spd-${meta.id}">0 B/s</span>
+                    </div>
+                </div>
+            `;
+            fileList.appendChild(div);
+
+            rows[meta.id] = {
+                el: div,
+                acceptBtn: div.querySelector(`#accept-${meta.id}`),
+                progWrap: div.querySelector(`#prog-${meta.id}`),
+                bar: div.querySelector(`#bar-${meta.id}`),
+                pct: div.querySelector(`#pct-${meta.id}`),
+                spd: div.querySelector(`#spd-${meta.id}`),
+            };
+
+            rows[meta.id].acceptBtn.addEventListener('click', () => acceptOffer(meta));
+        }
+
+        async function acceptOffer(meta) {
+            const row = rows[meta.id];
+            if (!row) return;
+            row.acceptBtn.disabled = true;
+            row.acceptBtn.innerText = '[ ОЖИДАНИЕ ВЫБОРА МЕСТА... ]';
+
+            // Именно здесь, внутри обработчика клика, вызывается showSaveFilePicker —
+            // это необходимо, иначе браузер откажет в диалоге сохранения.
+            await receiver.acceptFile(meta);
+
+            row.acceptBtn.innerText = 'ПРИЁМ...';
+            row.progWrap.style.display = 'block';
+        }
+
+        receiver = new P2PReceiver(roomId, {
+            onPeerState: (state) => {
+                if (state === 'connected') setStatus('[ СОЕДИНЕНИЕ УСТАНОВЛЕНО ]', 'connected');
+                else if (state === 'peer-left' || state === 'disconnected' || state === 'failed') setStatus('[ ОТПРАВИТЕЛЬ ОТКЛЮЧИЛСЯ ]', 'error');
+            },
+            onFileOffer: (meta) => {
+                renderOffer(meta);
+            },
+            onProgress: (id, received, speed, total) => {
+                const row = rows[id];
+                if (!row) return;
+                const pct = total ? ((received / total) * 100).toFixed(1) : 0;
+                row.bar.style.width = pct + '%';
+                row.pct.innerText = pct + '%';
+                row.spd.innerText = p2pFormatSpeed(speed) + ' | ' + p2pFormatSize(received) + ' / ' + p2pFormatSize(total);
+            },
+            onFileDone: (meta) => {
+                const row = meta && rows[meta.id];
+                if (row) {
+                    row.acceptBtn.innerText = '[ ГОТОВО ]';
+                    row.bar.style.background = 'linear-gradient(90deg, #00aa00, #0f0, #00ff44)';
+                }
+            },
+            onError: (msg) => showError(msg),
+        });
+
+        receiver.connect()
+            .then(() => setStatus('[ ОЖИДАНИЕ ОТПРАВИТЕЛЯ... ]', ''))
+            .catch((e) => showError(e.message));
+
+        window.addEventListener('beforeunload', () => receiver.close());
+    </script>
+</body>
+
+</html>

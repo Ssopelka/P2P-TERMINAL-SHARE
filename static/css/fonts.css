@@ -1,0 +1,8 @@
+/* === ПОДКЛЮЧЕНИЕ КАСТОМНОГО ШРИФТА === */
+@font-face {
+    font-family: 'HACKED';
+    src: url('../fonts/HACKED.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
